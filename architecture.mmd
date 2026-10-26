@@ -1,0 +1,39 @@
+flowchart LR
+  subgraph Channels[Sales channels]
+    WEB[Own website\nWebhook + DB/API]
+    NY[Nykaa\nWebhook + 1 SKU REST]
+    FK[Flipkart\n2-min poll + bulk REST]
+    BL[Blinkit\nWebhook + CSV/urgent REST]
+  end
+
+  ALB[ALB / API Gateway]
+  API[NestJS API\nvalidate, normalize, idempotency]
+  POLL[Flipkart poller]
+  CMD[Order command handler]
+  DB[(PostgreSQL RDS\norders + inventory + ledger\noutbox + projections)]
+  REDIS[(Redis / BullMQ\nqueues + rate limits)]
+  STOCK[Stock push workers\nper-channel adapters]
+  ERPW[ERP delivery worker]
+  ERP[Microsoft Business Central]
+  OPS[Ops screen\nfailed syncs + retry]
+  OBS[CloudWatch metrics/logs/alerts]
+
+  WEB --> ALB
+  NY --> ALB
+  BL --> ALB
+  ALB --> API --> CMD
+  POLL --> CMD
+  CMD -->|atomic reservation + outbox| DB
+  DB -->|publish durable jobs| REDIS
+  REDIS --> STOCK
+  REDIS --> ERPW
+  STOCK --> WEB
+  STOCK --> NY
+  STOCK --> FK
+  STOCK --> BL
+  ERPW --> ERP
+  OPS --> DB
+  API --> OBS
+  CMD --> OBS
+  STOCK --> OBS
+  ERPW --> OBS
